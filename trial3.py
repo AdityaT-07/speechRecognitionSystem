@@ -2,11 +2,9 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from ttkthemes import ThemedStyle
 import threading
-import time
-import queue
-import os
 import speech_recognition as sr
 import pyttsx3
+import os
 
 class SpeechRecognitionApp(tk.Tk):
     def __init__(self):
@@ -14,7 +12,12 @@ class SpeechRecognitionApp(tk.Tk):
         self.title("Speech Recognition System")
         self.current_frame = None
         self.style = ThemedStyle(self)
-        self.style.set_theme("plastik")  # Change theme if desired
+        self.style.set_theme("plastik")
+        
+        # Global instances to prevent re-initialization lag
+        self.engine = pyttsx3.init()
+        self.recognizer = sr.Recognizer()
+        
         self.configure_gui_styles()
         self.center_window()
         self.switch_frame(HomePage)
@@ -22,237 +25,147 @@ class SpeechRecognitionApp(tk.Tk):
     def switch_frame(self, frame_class):
         if self.current_frame is not None:
             self.current_frame.destroy()
-
         self.current_frame = frame_class(self, self)
         self.current_frame.pack(expand=True, fill="both")
 
     def center_window(self):
-        window_width = 600
-        window_height = 400
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        x_coordinate = (screen_width - window_width) // 2
-        y_coordinate = (screen_height - window_height) // 2
-        self.geometry(f"{window_width}x{window_height}+{x_coordinate}+{y_coordinate}")
+        window_width, window_height = 600, 400
+        x = (self.winfo_screenwidth() - window_width) // 2
+        y = (self.winfo_screenheight() - window_height) // 2
+        self.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
     def configure_gui_styles(self):
-        # Set background color to light pink for all frames
         self.style.configure('.', background='#FFB6C1')
+        self.style.configure('Custom.TButton', foreground='white', font=('Helvetica', 14, 'bold'))
+        self.style.configure('Custom.TEntry', font=('Helvetica', 12))
+        self.style.configure('Custom.TLabel', foreground='#555', font=('Helvetica', 12))
 
-        # Set button colors to dark blue
-        self.style.configure('Custom.TButton', foreground='white', font=('Helvetica', 18, 'bold'))
-        self.style.map('Custom.TButton', background=[('active', '#00008B')])
-
-        self.style.configure('Custom.TEntry', background='#FFFF00', borderwidth=2, relief='solid', padding=5, font=('Mynamar MN', 22))
-
-        self.style.configure('Custom.TLabel', foreground='#555', font=('Helvetica', 10))
-
-        self.style.configure('Custom.TText', background='#FFFF00', bd=2, relief='solid', padx=5, pady=5, font=('Mynamar MN', 22), fg='#555')
-
-        self.style.configure('Custom.TCombobox', background='#FFFF00', borderwidth=2, relief='solid', padding=5, font=('Mynamar MN', 22))
-
-
-class LoadingAnimation(tk.Toplevel):
-    def __init__(self, master):
-        super().__init__(master)
-        self.attributes('-fullscreen', True)
-        self.label = ttk.Label(self, text="Loading...", font=('Helvetica', 16))
-        self.label.pack(padx=20, pady=10)
-        self.progress = ttk.Progressbar(self, mode='indeterminate', length=200)
-        self.progress.pack(pady=10)
-
-    def start_animation(self):
-        self.label.after(2000, self.destroy)  # Destroy after 2 seconds
-        self.progress.start()
-
-    def stop_animation(self):
-        if self.progress.winfo_exists():  # Check if progress bar widget exists
-            self.progress.stop()
-
-
-class AnimatedFrame(ttk.Frame):
+class HomePage(ttk.Frame):
     def __init__(self, master, controller):
         super().__init__(master)
         self.controller = controller
+        ttk.Label(self, text="Speech Recognition System", style='Custom.TLabel', font=("Helvetica", 20)).pack(pady=20)
 
-    def slide_in(self):
-        self.place(relx=0, rely=0, relwidth=1, relheight=1)
+        # Removed the 2-second artificial loading delay for instant transitions
+        ttk.Button(self, text="Text to Speech", style='Custom.TButton', 
+                   command=lambda: controller.switch_frame(TextToSpeechPage)).pack(pady=10)
+        ttk.Button(self, text="Speech to Text", style='Custom.TButton', 
+                   command=lambda: controller.switch_frame(SpeechToTextPage)).pack(pady=10)
+        ttk.Button(self, text="Real Time", style='Custom.TButton', 
+                   command=lambda: controller.switch_frame(RealTimePage)).pack(pady=10)
 
-    def slide_out(self):
-        self.place_forget()
-
-
-class HomePage(AnimatedFrame):
+class TextToSpeechPage(ttk.Frame):
     def __init__(self, master, controller):
-        super().__init__(master, controller)
-        title_label = ttk.Label(self, text="Speech Recognition System", style='Custom.TLabel', font=("Helvetica", 20))
-        title_label.pack(pady=20)
-
-        text_to_speech_btn = ttk.Button(self, text="Text to Speech", style='Custom.TButton', command=self.show_loading_animation_text_to_speech)
-        text_to_speech_btn.pack(pady=10)
-
-        speech_to_text_btn = ttk.Button(self, text="Speech to Text", style='Custom.TButton', command=self.show_loading_animation_speech_to_text)
-        speech_to_text_btn.pack(pady=10)
-
-        real_time_btn = ttk.Button(self, text="Real Time", style='Custom.TButton', command=self.show_loading_animation_real_time)
-        real_time_btn.pack(pady=10)
-
-    def show_loading_animation_text_to_speech(self):
-        loading_animation = LoadingAnimation(self.controller)
-        loading_animation.start_animation()
-        self.controller.after(2000, lambda: self.show_frame(TextToSpeechPage))
-        self.controller.after(2200, loading_animation.stop_animation)
-
-    def show_loading_animation_speech_to_text(self):
-        loading_animation = LoadingAnimation(self.controller)
-        loading_animation.start_animation()
-        self.controller.after(2000, lambda: self.show_frame(SpeechToTextPage))
-        self.controller.after(2200, loading_animation.stop_animation)
-
-    def show_loading_animation_real_time(self):
-        loading_animation = LoadingAnimation(self.controller)
-        loading_animation.start_animation()
-        self.controller.after(2000, lambda: self.show_frame(RealTimePage))
-        self.controller.after(2200, loading_animation.stop_animation)
-
-    def show_frame(self, page):
-        self.controller.switch_frame(page)
-
-
-class TextToSpeechPage(AnimatedFrame):
-    def __init__(self, master, controller):
-        super().__init__(master, controller)
-        self.text_entry = ttk.Entry(self, width=50, style='Custom.TEntry')
-        self.text_entry.pack(pady=10)
-
-        self.play_btn = ttk.Button(self, text="Play", style='Custom.TButton', command=self.convert_to_speech)
-        self.play_btn.pack(pady=10)
-
-        back_btn = ttk.Button(self, text="Back to Home", style='Custom.TButton', command=lambda: controller.switch_frame(HomePage))
-        back_btn.pack(pady=10)
+        super().__init__(master)
+        self.controller = controller
+        self.text_entry = ttk.Entry(self, width=50)
+        self.text_entry.pack(pady=20)
+        
+        ttk.Button(self, text="Play", style='Custom.TButton', command=self.convert_to_speech).pack(pady=10)
+        ttk.Button(self, text="Back", style='Custom.TButton', command=lambda: controller.switch_frame(HomePage)).pack(pady=10)
 
     def convert_to_speech(self):
         text = self.text_entry.get()
-        engine = pyttsx3.init()
-        engine.say(text)
-        engine.runAndWait()
+        if text.strip():
+            # Run in thread so the GUI doesn't freeze during speech
+            threading.Thread(target=self._speak, args=(text,), daemon=True).start()
 
+    def _speak(self, text):
+        self.controller.engine.say(text)
+        self.controller.engine.runAndWait()
 
-class SpeechToTextPage(AnimatedFrame):
+class SpeechToTextPage(ttk.Frame):
     def __init__(self, master, controller):
-        super().__init__(master, controller)
-        self.file_path_label = ttk.Label(self, text="Selected File: ", style='Custom.TLabel')
-        self.file_path_label.pack(pady=10)
-
-        self.select_file_btn = ttk.Button(self, text="Select Audio File", style='Custom.TButton', command=self.select_audio_file)
-        self.select_file_btn.pack(pady=10)
-
-        self.save_text_btn = ttk.Button(self, text="Save Text", style='Custom.TButton', command=self.save_text)
-        self.save_text_btn.pack(pady=10)
-
-        self.text_output = tk.Text(self, height=10, width=50, wrap="word")
+        super().__init__(master)
+        self.controller = controller
+        self.file_path = ""
+        
+        self.label = ttk.Label(self, text="No file selected")
+        self.label.pack(pady=10)
+        
+        ttk.Button(self, text="Select File", style='Custom.TButton', command=self.select_audio_file).pack(pady=5)
+        ttk.Button(self, text="Process & Save", style='Custom.TButton', command=self.start_processing).pack(pady=5)
+        
+        self.text_output = tk.Text(self, height=8, width=50)
         self.text_output.pack(pady=10)
-
-        back_btn = ttk.Button(self, text="Back to Home", style='Custom.TButton', command=lambda: controller.switch_frame(HomePage))
-        back_btn.pack(pady=10)
-
-        self.configure_text_widget()
+        ttk.Button(self, text="Back", style='Custom.TButton', command=lambda: controller.switch_frame(HomePage)).pack(pady=5)
 
     def select_audio_file(self):
-        self.file_path = filedialog.askopenfilename(filetypes=[("Audio Files", "*.wav;*.mp3")])
-        self.file_path_label.config(text="Selected File: " + self.file_path)
+        self.file_path = filedialog.askopenfilename(filetypes=[("Audio", "*.wav;*.mp3")])
+        if self.file_path:
+            self.label.config(text=f"Selected: {os.path.basename(self.file_path)}")
 
-    def save_text(self):
-        if hasattr(self, 'file_path'):
-            threading.Thread(target=self.process_audio).start()
+    def start_processing(self):
+        if self.file_path:
+            threading.Thread(target=self.process_audio, daemon=True).start()
 
     def process_audio(self):
-        recognizer = sr.Recognizer()
+        recognizer = self.controller.recognizer
         try:
             with sr.AudioFile(self.file_path) as source:
                 audio_data = recognizer.record(source)
             text = recognizer.recognize_google(audio_data)
-            self.text_output.delete('1.0', tk.END)  # Clear previous text
-            self.text_output.insert(tk.END, text)
-            self.save_text_to_file(text)
-            messagebox.showinfo("Save Text", "Text saved successfully.")
-        except sr.UnknownValueError:
-            messagebox.showerror("Error", "Unable to recognize speech.")
-        except sr.RequestError as e:
-            messagebox.showerror("Error", f"Could not request results from Google Speech Recognition service; {e}")
+            
+            # Use .after to update GUI from thread safely
+            self.controller.after(0, lambda: self.update_ui(text))
+        except Exception as e:
+            self.controller.after(0, lambda: messagebox.showerror("Error", str(e)))
 
-    def save_text_to_file(self, text):
-        file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text Files", "*.txt")])
-        if file_path:
-            with open(file_path, "w") as f:
-                f.write(text)
+    def update_ui(self, text):
+        self.text_output.delete('1.0', tk.END)
+        self.text_output.insert(tk.END, text)
+        # Immediate prompt to save after processing
+        save_path = filedialog.asksaveasfilename(defaultextension=".txt")
+        if save_path:
+            with open(save_path, "w") as f: f.write(text)
 
-    def configure_text_widget(self):
-        self.text_output.config(bg='white', bd=2, relief='solid', padx=5, pady=5, font=('Mynamar MN', 22), fg='#555')
-
-
-class RealTimePage(AnimatedFrame):
+class RealTimePage(ttk.Frame):
     def __init__(self, master, controller):
-        super().__init__(master, controller)
-        self.text_box = tk.Text(self, height=10, width=50, wrap="word")
+        super().__init__(master)
+        self.controller = controller
+        self.text_box = tk.Text(self, height=10, width=50)
         self.text_box.pack(pady=10)
 
-        self.language_var = tk.StringVar(value="en")  # Default language is English
+        self.lang_var = tk.StringVar(value="en-US")
+        ttk.Label(self, text="Language:").pack()
+        self.combo = ttk.Combobox(self, textvariable=self.lang_var, values=["en-US", "hi-IN", "mr-IN"])
+        self.combo.pack(pady=5)
 
-        language_label = ttk.Label(self, text="Select Language:", style='Custom.TLabel')
-        language_label.pack(pady=5)
+        self.start_btn = ttk.Button(self, text="Start", command=self.start_listening)
+        self.start_btn.pack(pady=5)
+        self.stop_btn = ttk.Button(self, text="Stop", command=self.stop_listening, state="disabled")
+        self.stop_btn.pack(pady=5)
+        
+        ttk.Button(self, text="Back", command=lambda: [self.stop_listening(), controller.switch_frame(HomePage)]).pack()
 
-        self.language_menu = ttk.Combobox(self, textvariable=self.language_var, values=["en", "hi", "mr"], style='Custom.TCombobox')
-        self.language_menu.pack(pady=5)
+        self.is_listening = False
+        self.mic = sr.Microphone()
 
-        self.start_btn = ttk.Button(self, text="Start", style='Custom.TButton', command=self.start_real_time_recognition)
-        self.start_btn.pack(pady=10)
+    def start_listening(self):
+        self.is_listening = True
+        self.start_btn.config(state="disabled")
+        self.stop_btn.config(state="normal")
+        threading.Thread(target=self.listen_loop, daemon=True).start()
 
-        self.stop_btn = ttk.Button(self, text="Stop", style='Custom.TButton', command=self.stop_real_time_recognition)
-        self.stop_btn.pack(pady=10)
-        self.stop_btn.config(state=tk.DISABLED)
+    def stop_listening(self):
+        self.is_listening = False
+        self.start_btn.config(state="normal")
+        self.stop_btn.config(state="disabled")
 
-        back_btn = ttk.Button(self, text="Back to Home", style='Custom.TButton', command=lambda: controller.switch_frame(HomePage))
-        back_btn.pack(pady=10)
-
-        self.recognizer = sr.Recognizer()
-        self.microphone = sr.Microphone()
-
-        self.stop_event = threading.Event()
-
-    def start_real_time_recognition(self):
-        self.start_btn.config(state=tk.DISABLED)
-        self.stop_btn.config(state=tk.NORMAL)
-        self.text_box.delete('1.0', tk.END)  # Clear previous text
-
-        language = self.language_var.get()
-
-        threading.Thread(target=self.listen_microphone, args=(language,)).start()
-
-    def stop_real_time_recognition(self):
-        self.stop_event.set()
-        self.start_btn.config(state=tk.NORMAL)
-        self.stop_btn.config(state=tk.DISABLED)
-
-    def listen_microphone(self, language):
-        with self.microphone as source:
-            self.recognizer.adjust_for_ambient_noise(source)
-            while not self.stop_event.is_set():
+    def listen_loop(self):
+        with self.mic as source:
+            # Calibrate once per session, not once per phrase
+            self.controller.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+            while self.is_listening:
                 try:
-                    audio_data = self.recognizer.listen(source, timeout=5)
-                    if language == "hi":
-                        text = self.recognizer.recognize_google(audio_data, language="hi-IN")
-                    elif language == "mr":
-                        text = self.recognizer.recognize_google(audio_data, language="mr-IN")
-                    else:
-                        text = self.recognizer.recognize_google(audio_data)
-                    self.text_box.insert(tk.END, text + "\n")
-                    self.text_box.see(tk.END)  # Scroll to the end of the text box
-                except sr.WaitTimeoutError:
+                    # listen() blocks until speech is detected
+                    audio = self.controller.recognizer.listen(source, timeout=2, phrase_time_limit=5)
+                    text = self.controller.recognizer.recognize_google(audio, language=self.lang_var.get())
+                    self.controller.after(0, lambda t=text: self.text_box.insert(tk.END, t + " "))
+                except (sr.WaitTimeoutError, sr.UnknownValueError):
+                    continue
+                except Exception:
                     break
-                except sr.UnknownValueError:
-                    pass
-
 
 if __name__ == "__main__":
     app = SpeechRecognitionApp()
