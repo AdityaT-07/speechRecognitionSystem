@@ -91,9 +91,18 @@ class SpeechToTextPage(ttk.Frame):
         ttk.Button(self, text="Back", style='Custom.TButton', command=lambda: controller.switch_frame(HomePage)).pack(pady=5)
 
     def select_audio_file(self):
-        self.file_path = filedialog.askopenfilename(filetypes=[("Audio", "*.wav;*.mp3")])
+        self.file_path = filedialog.askopenfilename(
+            title="Select an audio file",
+            filetypes=[
+                ("Supported audio files", "*.wav *.aiff *.aif *.flac"),
+                ("WAV files", "*.wav"),
+            ],
+        )
+
         if self.file_path:
-            self.label.config(text=f"Selected: {os.path.basename(self.file_path)}")
+            self.label.config(
+                text=f"Selected: {os.path.basename(self.file_path)}"
+            )
 
     def start_processing(self):
         if self.file_path:
